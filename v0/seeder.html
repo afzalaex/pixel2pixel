@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+  const id = Number(new URLSearchParams(location.search).get("id"));
+  const ws = new WebSocket("ws://localhost:8080");
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ id }));
+  };
+</script>
+</body>
+</html>
