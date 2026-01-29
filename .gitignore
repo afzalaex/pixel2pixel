@@ -1,0 +1,21 @@
+# env secrets
+.env
+.env.*
+
+# node
+node_modules/
+npm-debug.log*
+
+# hardhat / build
+artifacts/
+cache/
+typechain/
+coverage/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# logs
+logs
+*.log
