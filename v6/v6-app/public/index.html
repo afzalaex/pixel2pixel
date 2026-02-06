@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>P2P v6</title>
+
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: monospace;
+    }
+
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 24px;
+      background: #000;
+      z-index: 10;
+    }
+
+    .logo {
+      width: 80px;
+      height: 55px;
+    }
+
+    button {
+      padding: 10px 14px;
+      border: 2px solid #fff;
+      background: transparent;
+      color: #fff;
+      cursor: pointer;
+      font-family: monospace;
+    }
+
+    button:hover:enabled {
+      background: #fff;
+      color: #000;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .content {
+      margin-top: 96px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 32px;
+    }
+
+    .meta {
+      color: #777;
+      font-size: 14px;
+      text-align: center;
+      max-width: 560px;
+      padding: 0 12px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(10, 40px);
+      gap: 0;
+    }
+
+    .cell {
+      width: 40px;
+      height: 40px;
+      background: #111;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cell img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+      image-rendering: pixelated;
+    }
+
+    .cell.seeding::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      box-shadow: inset 0 0 0 1px #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+      pointer-events: none;
+    }
+
+    .wallets {
+      color: #aaa;
+      font-size: 13px;
+      max-width: 600px;
+      text-align: center;
+      padding: 0 12px;
+      word-break: break-word;
+    }
+
+    #seeder {
+      display: none;
+      gap: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="navbar">
+    <img src="/logo.svg" class="logo" />
+    <button id="connect">Connect</button>
+  </div>
+
+  <div class="content">
+    <div id="status" class="meta">Loading on-chain canvas...</div>
+    <div id="metrics" class="meta"></div>
+    <div class="grid" id="grid"></div>
+    <button id="mint" style="display:none">Mint Pixel</button>
+    <div id="seeder"></div>
+    <div id="wallets" class="wallets"></div>
+  </div>
+
+  <script src="/ethers.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
