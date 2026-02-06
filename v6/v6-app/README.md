@@ -2,8 +2,9 @@
 
 ## Behavior
 - Same visual branding as v5.
-- Canvas rendering is on-chain NFT SVG only (`tokenURI` -> decode SVG -> render).
-- WebSocket is used only for seeding overlay state.
+- Canvas renders on-chain NFT SVG only (`tokenURI` -> decode SVG -> render).
+- No seeding = blank grid.
+- Seeding active = render seeded nodes from on-chain SVG.
 - WS seeding is wallet-signed and server-validated against on-chain `nodeOf(address)`.
 
 ## Run

@@ -20,8 +20,11 @@ let isSeeding = false;
 let seedWs = null;
 let viewWs = null;
 
-const mintedNodes = new Set();
 let latestAlive = {};
+let renderEpoch = 0;
+
+const nodeSvgCache = new Map();
+const pendingNodeFetch = new Map();
 
 const connectBtn = document.getElementById("connect");
 const mintBtn = document.getElementById("mint");
@@ -80,8 +83,7 @@ function parseTokenURI(tokenURI) {
     throw new Error("Invalid image format");
   }
 
-  const svgText = base64ToUtf8(metadata.image.slice(imagePrefix.length));
-  return { metadata, svgText };
+  return base64ToUtf8(metadata.image.slice(imagePrefix.length));
 }
 
 function createGrid() {
@@ -105,64 +107,108 @@ function clearNodeCell(nodeId) {
 
   entry.img.removeAttribute("src");
   entry.img.style.display = "none";
-  entry.cell.classList.remove("seeding");
-  mintedNodes.delete(nodeId);
 }
 
 function renderNodeSvg(nodeId, svgText) {
   const entry = cells[nodeId - 1];
   if (!entry) return;
 
-  const src = "data:image/svg+xml;base64," + utf8ToBase64(svgText);
-  entry.img.src = src;
+  entry.img.src = "data:image/svg+xml;base64," + utf8ToBase64(svgText);
   entry.img.style.display = "block";
-  mintedNodes.add(nodeId);
 }
 
-function applySeedingOverlay(alive) {
-  latestAlive = alive || {};
-
-  for (let node = 1; node <= MAX_NODES; node += 1) {
-    const seeded = Boolean(latestAlive[node]) && mintedNodes.has(node);
-    cells[node - 1].cell.classList.toggle("seeding", seeded);
+function normalizeAlive(rawAlive) {
+  const out = {};
+  if (!rawAlive || typeof rawAlive !== "object") {
+    return out;
   }
 
-  const up = Object.keys(latestAlive).length;
-  metricsEl.innerText = `seeding: ${up} / ${MAX_NODES}`;
-  walletsEl.innerText = up
-    ? "active wallets: " + Object.values(latestAlive).join(", ")
-    : "";
+  for (const [key, value] of Object.entries(rawAlive)) {
+    const node = Number(key);
+    if (
+      Number.isInteger(node) &&
+      node >= 1 &&
+      node <= MAX_NODES &&
+      typeof value === "string" &&
+      value.length > 0
+    ) {
+      out[node] = value;
+    }
+  }
+
+  return out;
 }
 
-async function loadNodeFromChain(nodeId) {
+async function fetchNodeSvgFromChain(nodeId) {
   try {
     const tokenURI = await readContract.tokenURI(nodeId);
-    const parsed = parseTokenURI(tokenURI);
-    renderNodeSvg(nodeId, parsed.svgText);
-    return true;
+    const svgText = parseTokenURI(tokenURI);
+    nodeSvgCache.set(nodeId, svgText);
+    return svgText;
   } catch {
-    clearNodeCell(nodeId);
-    return false;
+    nodeSvgCache.delete(nodeId);
+    return null;
   }
 }
 
-async function loadCanvasFromChain() {
-  let minted = 0;
-  const chunkSize = 8;
-
-  for (let start = 1; start <= MAX_NODES; start += chunkSize) {
-    const batch = [];
-    const end = Math.min(MAX_NODES, start + chunkSize - 1);
-    for (let node = start; node <= end; node += 1) {
-      batch.push(loadNodeFromChain(node));
-    }
-
-    const results = await Promise.all(batch);
-    minted += results.filter(Boolean).length;
+function ensureNodeSvg(nodeId) {
+  if (nodeSvgCache.has(nodeId)) {
+    return Promise.resolve(nodeSvgCache.get(nodeId));
   }
 
-  applySeedingOverlay(latestAlive);
-  return minted;
+  if (pendingNodeFetch.has(nodeId)) {
+    return pendingNodeFetch.get(nodeId);
+  }
+
+  const promise = fetchNodeSvgFromChain(nodeId).finally(() => {
+    pendingNodeFetch.delete(nodeId);
+  });
+  pendingNodeFetch.set(nodeId, promise);
+  return promise;
+}
+
+async function applySeedingState(rawAlive) {
+  const alive = normalizeAlive(rawAlive);
+  latestAlive = alive;
+  const epoch = ++renderEpoch;
+
+  const activeWallets = Object.values(alive);
+  metricsEl.innerText = `seeding: ${activeWallets.length} / ${MAX_NODES}`;
+  walletsEl.innerText = activeWallets.length
+    ? "active wallets: " + activeWallets.join(", ")
+    : "";
+
+  for (let node = 1; node <= MAX_NODES; node += 1) {
+    if (!alive[node]) {
+      clearNodeCell(node);
+    }
+  }
+
+  const tasks = [];
+  for (const key of Object.keys(alive)) {
+    const node = Number(key);
+    const cachedSvg = nodeSvgCache.get(node);
+    if (cachedSvg) {
+      renderNodeSvg(node, cachedSvg);
+      continue;
+    }
+
+    tasks.push(
+      ensureNodeSvg(node).then((svgText) => {
+        if (epoch !== renderEpoch || !latestAlive[node]) {
+          return;
+        }
+
+        if (svgText) {
+          renderNodeSvg(node, svgText);
+        } else {
+          clearNodeCell(node);
+        }
+      })
+    );
+  }
+
+  await Promise.allSettled(tasks);
 }
 
 function resetWalletUi() {
@@ -186,7 +232,7 @@ function resetWalletUi() {
   seederEl.style.display = "none";
   seederEl.innerHTML = "";
 
-  setStatus("On-chain canvas ready. Connect wallet to participate.");
+  setStatus("Seeding-only render active. Connect wallet to participate.");
 }
 
 function updateOwnerStatus() {
@@ -273,7 +319,7 @@ async function mintNode() {
     await tx.wait();
 
     ownedNode = Number(await writeContract.nodeOf(wallet));
-    await loadNodeFromChain(ownedNode);
+    await ensureNodeSvg(ownedNode);
 
     mintBtn.style.display = "none";
     mintBtn.disabled = false;
@@ -352,18 +398,15 @@ function startSeeding() {
 }
 
 function stopSeeding() {
-  if (!seedWs) {
-    isSeeding = false;
-    updateOwnerStatus();
-    return;
-  }
-
-  if (seedWs.readyState === WebSocket.OPEN) {
+  if (seedWs && seedWs.readyState === WebSocket.OPEN) {
     seedWs.send(JSON.stringify({ type: "seed-stop" }));
   }
 
-  seedWs.close();
-  seedWs = null;
+  if (seedWs) {
+    seedWs.close();
+    seedWs = null;
+  }
+
   isSeeding = false;
   updateOwnerStatus();
 }
@@ -379,12 +422,13 @@ function connectViewerSocket() {
       return;
     }
 
-    if (data.type === "alive" && data.alive && typeof data.alive === "object") {
-      applySeedingOverlay(data.alive);
+    if (data.type === "alive") {
+      applySeedingState(data.alive).catch(() => {});
     }
   };
 
   viewWs.onclose = () => {
+    applySeedingState({}).catch(() => {});
     setTimeout(connectViewerSocket, 1500);
   };
 }
@@ -399,16 +443,14 @@ async function loadConfig() {
 
 async function init() {
   createGrid();
-  applySeedingOverlay({});
+  await applySeedingState({});
 
   config = await loadConfig();
   const readRpc = config.readRpc || READ_RPC_FALLBACK;
   readProvider = new ethers.JsonRpcProvider(readRpc, config.chainId || SEPOLIA_CHAIN_ID);
   readContract = new ethers.Contract(config.address, config.abi, readProvider);
 
-  const mintedCount = await loadCanvasFromChain();
-  setStatus(`On-chain canvas loaded (${mintedCount}/${MAX_NODES} minted). Connect wallet.`);
-
+  setStatus("Seeding-only render active. Connect wallet.");
   connectViewerSocket();
 }
 
