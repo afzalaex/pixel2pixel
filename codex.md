@@ -115,4 +115,15 @@ No mock colors. No placeholders. No WS-generated pixels.
 \- No extra UI experiments
 
 
+\## Security Rules
+
+\- Never paste private keys
+
+\- Never commit .env
+
+\- Deploys are run manually
+
+\- Codex only audits and edits code
+
+
 

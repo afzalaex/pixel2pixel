@@ -1,6 +1,7 @@
 # env secrets
 .env
 .env.*
+instructions.md
 
 # node
 node_modules/
