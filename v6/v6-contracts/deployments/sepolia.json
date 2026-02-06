@@ -1,0 +1,6 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "contractName": "Nodes",
+  "address": "0x481d7c71c4f717b93386A47106788F6b21bF2B39"
+}
