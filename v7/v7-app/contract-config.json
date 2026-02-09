@@ -1,0 +1,24 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "readRpc": "https://ethereum-sepolia-rpc.publicnode.com",
+  "nodes": {
+    "address": "0x8cd13e16943e824Ca19a1a7551Eb6233459ddDA5",
+    "abi": [
+      "function mint()",
+      "function nodeOf(address) view returns (uint256)",
+      "function hasMinted(address) view returns (bool)",
+      "function tokenURI(uint256) view returns (string)",
+      "function totalSupply() view returns (uint256)",
+      "function nextTokenId() view returns (uint256)",
+      "function roundId() view returns (uint256)",
+      "function gameActive() view returns (bool)"
+    ]
+  },
+  "finalAuction": {
+    "address": "0x2606AAa77e2A94Df69e3c50c55dE69D5E6578A5B",
+    "abi": [
+      "function finalized() view returns (bool)"
+    ]
+  }
+}

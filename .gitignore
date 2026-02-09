@@ -2,6 +2,7 @@
 .env
 .env.*
 instructions.md
+codex.md
 
 # node
 node_modules/

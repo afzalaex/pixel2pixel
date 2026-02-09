@@ -1,0 +1,14 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "0xD94100B1a659eB523950Ad956718719c43A4165D",
+  "nodesV7": {
+    "contractName": "NodesV7",
+    "address": "0x8cd13e16943e824Ca19a1a7551Eb6233459ddDA5"
+  },
+  "finalAuction": {
+    "contractName": "FinalAuction",
+    "address": "0x2606AAa77e2A94Df69e3c50c55dE69D5E6578A5B",
+    "nodesAddress": "0x8cd13e16943e824Ca19a1a7551Eb6233459ddDA5"
+  }
+}

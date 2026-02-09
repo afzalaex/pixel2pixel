@@ -1,0 +1,19 @@
+{
+  "name": "v7-app",
+  "version": "1.0.0",
+  "description": "Pixel2Pixel v7 frontend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "ethers": "^6.16.0",
+    "express": "^5.2.1",
+    "ws": "^8.19.0"
+  }
+}
