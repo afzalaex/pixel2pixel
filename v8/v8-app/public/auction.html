@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>P2P v8 Auction</title>
+  <link rel="stylesheet" href="/aex-theme.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="nav-shell">
+      <a class="brand" href="/">
+        <img src="/aex-logo.svg" class="logo" alt="aex logo" />
+      </a>
+      <button id="connect" class="wallet-btn" type="button">Connect Wallet</button>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="panel control-grid">
+      <h1 class="stack-title">Auction Console</h1>
+      <p id="auction-status" class="meta">Loading auction state...</p>
+
+      <div class="kvs">
+        <div class="kv"><strong>Round:</strong> <span id="state-round">-</span></div>
+        <div class="kv"><strong>Terminal:</strong> <span id="state-terminal">-</span></div>
+        <div class="kv"><strong>Terminal Snapshot Hash:</strong> <span id="state-terminal-hash">-</span></div>
+        <div class="kv"><strong>Auction Round:</strong> <span id="state-auction-round">-</span></div>
+        <div class="kv"><strong>Auction Active:</strong> <span id="state-auction-active">-</span></div>
+        <div class="kv"><strong>Finalized:</strong> <span id="state-finalized">-</span></div>
+        <div class="kv"><strong>Auction End:</strong> <span id="state-auction-end">-</span></div>
+        <div class="kv"><strong>Highest Bid:</strong> <span id="state-highest-bid">-</span></div>
+        <div class="kv"><strong>Highest Bidder:</strong> <span id="state-highest-bidder">-</span></div>
+        <div class="kv"><strong>Your Node:</strong> <span id="state-your-node">-</span></div>
+        <div class="kv"><strong>Your Bid Placed:</strong> <span id="state-your-bid-flag">-</span></div>
+        <div class="kv"><strong>Your Refund:</strong> <span id="state-your-refund">-</span></div>
+        <div class="kv"><strong>Final Token For Auction Round:</strong> <span id="state-final-token">-</span></div>
+      </div>
+
+      <div class="control-row">
+        <div class="field">
+          <label for="auction-duration">Auction Duration (sec)</label>
+          <input id="auction-duration" type="number" min="30" step="1" value="300" />
+        </div>
+        <button id="activate-auction" type="button">Activate Auction</button>
+      </div>
+
+      <div class="control-row">
+        <div class="field">
+          <label for="bid-eth">Bid Amount (ETH)</label>
+          <input id="bid-eth" type="text" value="0.00002" />
+        </div>
+        <button id="place-bid" type="button">Place Bid</button>
+      </div>
+
+      <div class="control-row">
+        <button id="finalize-auction" type="button">Finalize Auction</button>
+        <button id="withdraw-refund" type="button">Withdraw Refund</button>
+        <button id="claim-final" type="button">Claim Final Artwork</button>
+        <button id="reset-round" type="button">Reset Round</button>
+        <button id="refresh-auction" type="button">Refresh</button>
+      </div>
+
+      <div class="preview-wrap">
+        <div class="preview-frame">
+          <img id="final-svg-preview" alt="Final artwork preview" />
+        </div>
+        <p id="final-svg-note" class="small-note">Terminal snapshot preview appears here when available.</p>
+      </div>
+
+      <div class="flow-links">
+        <a class="link-btn" href="/">Canvas</a>
+        <a class="link-btn" href="/final-artwork.html">Final Artwork</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="/ethers.min.js"></script>
+  <script src="/auction.js"></script>
+</body>
+</html>

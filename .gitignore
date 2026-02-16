@@ -1,6 +1,17 @@
 # env secrets
 .env
 .env.*
+**/.env
+**/.env.*
+**/.envrc
+**/.env.local
+**/.env.production
+**/.env.development
+**/.env.test
+!**/.env.example
+!**/.env.template
+!**/.env.sample
+!**/.env.defaults
 instructions.md
 codex.md
 

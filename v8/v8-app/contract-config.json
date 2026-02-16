@@ -1,0 +1,51 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "readRpc": "https://ethereum-sepolia-rpc.publicnode.com",
+  "nodes": {
+    "address": "0x9459D54c0D8A80ae7C71AcdE5f7bFD61F54ab266",
+    "abi": [
+      "function mint()",
+      "function nodeOf(address) view returns (uint256)",
+      "function ownerOf(uint256) view returns (address)",
+      "function hasMinted(address) view returns (bool)",
+      "function tokenURI(uint256) view returns (string)",
+      "function totalSupply() view returns (uint256)",
+      "function nextTokenId() view returns (uint256)",
+      "function roundId() view returns (uint256)",
+      "function finalSnapshotHashByRound(uint256) view returns (bytes32)",
+      "function finalArtworkTokenIdByRound(uint256) view returns (uint256)",
+      "function resetGame()"
+    ]
+  },
+  "finalAuction": {
+    "address": "0xDbaEC79042FA742812DAecEf530bF892b201a59E",
+    "abi": [
+      "function finalized() view returns (bool)",
+      "function auctionActive() view returns (bool)",
+      "function auctionEnd() view returns (uint256)",
+      "function auctionRoundId() view returns (uint256)",
+      "function snapshotHash() view returns (bytes32)",
+      "function highestBidder() view returns (address)",
+      "function highestBid() view returns (uint256)",
+      "function pendingReturns(address) view returns (uint256)",
+      "function hasBidInRound(uint256,address) view returns (bool)",
+      "function activateAuction(bytes32,uint256)",
+      "function bid() payable",
+      "function finalizeAuction()",
+      "function withdrawRefund()",
+      "function owner() view returns (address)"
+    ]
+  },
+  "finalArtwork": {
+    "address": "0x35f21738e17cC01cF59892Fa67bEaEB23D514DeA",
+    "abi": [
+      "function tokenIdByRound(uint256) view returns (uint256)",
+      "function ownerOf(uint256) view returns (address)",
+      "function roundByToken(uint256) view returns (uint256)",
+      "function snapshotHashByToken(uint256) view returns (bytes32)",
+      "function tokenURI(uint256) view returns (string)",
+      "function claim(string)"
+    ]
+  }
+}

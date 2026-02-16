@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pixel2Pixel Pattern Preview</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #000000;
+        --line: #000000;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Space Mono", monospace;
+        background: var(--bg);
+        color: var(--fg);
+      }
+
+      .wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 20px;
+      }
+
+      p {
+        margin: 0 0 16px;
+        font-size: 13px;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        padding: 12px;
+        margin-bottom: 14px;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(120px, 1fr));
+        gap: 10px;
+      }
+
+      .control {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 12px;
+      }
+
+      select,
+      input[type="number"],
+      input[type="range"] {
+        width: 100%;
+        font-family: inherit;
+        font-size: 12px;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: #000;
+        padding: 4px 6px;
+      }
+
+      input[type="checkbox"] {
+        transform: translateY(1px);
+      }
+
+      .checkline {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .canvas-wrap {
+        border: 1px solid var(--line);
+        display: inline-block;
+      }
+
+      .meta {
+        margin-top: 8px;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+        gap: 10px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        padding: 8px;
+      }
+
+      .card h3 {
+        margin: 0 0 6px;
+        font-size: 12px;
+      }
+
+      .mini {
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--line);
+      }
+
+      .small {
+        margin-top: 6px;
+        font-size: 11px;
+      }
+
+      @media (max-width: 900px) {
+        .controls {
+          grid-template-columns: repeat(2, minmax(140px, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Pixel2Pixel Path Pattern Preview</h1>
+      <p>
+        100 branded colors derived from RGB range 155-255 in an ordered palette (not random).
+        Only position changes via pattern template + rotation + mirror + phase.
+      </p>
+
+      <section class="panel">
+        <div class="controls">
+          <label class="control">
+            Pattern
+            <select id="pattern"></select>
+          </label>
+
+          <label class="control">
+            Rotation
+            <select id="rotation">
+              <option value="0">0 deg</option>
+              <option value="1">90 deg</option>
+              <option value="2">180 deg</option>
+              <option value="3">270 deg</option>
+            </select>
+          </label>
+
+          <label class="control">
+            Phase (0-99)
+            <input id="phase" type="range" min="0" max="99" step="1" value="0" />
+          </label>
+
+          <label class="control">
+            Phase exact
+            <input id="phaseNum" type="number" min="0" max="99" step="1" value="0" />
+          </label>
+
+          <label class="control">
+            Mirrors
+            <span class="checkline">
+              <input id="mirrorX" type="checkbox" />
+              Mirror X
+            </span>
+            <span class="checkline">
+              <input id="mirrorY" type="checkbox" />
+              Mirror Y
+            </span>
+          </label>
+
+          <label class="control">
+            Overlay
+            <span class="checkline">
+              <input id="showOrder" type="checkbox" />
+              Show order 1..100
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="canvas-wrap">
+          <svg id="mainSvg" width="700" height="700" viewBox="0 0 700 700"></svg>
+        </div>
+        <div id="meta" class="meta"></div>
+      </section>
+
+      <section class="panel">
+        <div id="gallery" class="gallery"></div>
+      </section>
+    </div>
+
+    <script>
+      const N = 10;
+      const CELL = 70;
+      const SIZE = N * CELL;
+      const TOTAL = N * N;
+
+      const patternSelect = document.getElementById("pattern");
+      const rotationSelect = document.getElementById("rotation");
+      const phaseInput = document.getElementById("phase");
+      const phaseNumInput = document.getElementById("phaseNum");
+      const mirrorXInput = document.getElementById("mirrorX");
+      const mirrorYInput = document.getElementById("mirrorY");
+      const showOrderInput = document.getElementById("showOrder");
+      const mainSvg = document.getElementById("mainSvg");
+      const meta = document.getElementById("meta");
+      const gallery = document.getElementById("gallery");
+
+      function rgbToHex(r, g, b) {
+        const toHex = (x) => x.toString(16).padStart(2, "0");
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+      }
+
+      function hsvToRgb(h, s, v) {
+        const sat = s / 100;
+        const val = v / 100;
+        const c = val * sat;
+        const hp = h / 60;
+        const x = c * (1 - Math.abs((hp % 2) - 1));
+        let r1 = 0;
+        let g1 = 0;
+        let b1 = 0;
+
+        if (hp >= 0 && hp < 1) {
+          r1 = c;
+          g1 = x;
+        } else if (hp >= 1 && hp < 2) {
+          r1 = x;
+          g1 = c;
+        } else if (hp >= 2 && hp < 3) {
+          g1 = c;
+          b1 = x;
+        } else if (hp >= 3 && hp < 4) {
+          g1 = x;
+          b1 = c;
+        } else if (hp >= 4 && hp < 5) {
+          r1 = x;
+          b1 = c;
+        } else {
+          r1 = c;
+          b1 = x;
+        }
+
+        const m = val - c;
+        return [
+          Math.round((r1 + m) * 255),
+          Math.round((g1 + m) * 255),
+          Math.round((b1 + m) * 255)
+        ];
+      }
+
+      // Keep the palette in 155..255 while preserving chroma.
+      function mapToBrandRange(channel) {
+        const t = channel / 255;
+        const shaped = Math.max(0, (t - 0.35) / 0.65);
+        return 155 + Math.round(shaped * 100);
+      }
+
+      function buildBrandColors() {
+        const out = [];
+        for (let hueBand = 0; hueBand < 10; hueBand += 1) {
+          for (let tone = 0; tone < 10; tone += 1) {
+            const hue = hueBand * 36;
+            const saturation = 96 - tone * 2; // 96..78
+            const value = 74 + tone * 2.2; // 74..93.8
+            const [r, g, b] = hsvToRgb(hue, saturation, value);
+            out.push(
+              rgbToHex(
+                mapToBrandRange(r),
+                mapToBrandRange(g),
+                mapToBrandRange(b)
+              )
+            );
+          }
+        }
+        return out;
+      }
+
+      const PALETTE_NAME = "BRAND_ORDERED_155_255_V3";
+      const COLORS = buildBrandColors();
+
+      function allCoords() {
+        const out = [];
+        for (let y = 0; y < N; y += 1) {
+          for (let x = 0; x < N; x += 1) {
+            out.push({ x, y });
+          }
+        }
+        return out;
+      }
+
+      function pathRows() {
+        return allCoords();
+      }
+
+      function pathColumns() {
+        const out = [];
+        for (let x = 0; x < N; x += 1) {
+          for (let y = 0; y < N; y += 1) {
+            out.push({ x, y });
+          }
+        }
+        return out;
+      }
+
+      function pathDiagonalBands() {
+        const out = [];
+        for (let sum = 0; sum <= (N - 1) * 2; sum += 1) {
+          const band = [];
+          for (let x = 0; x < N; x += 1) {
+            const y = sum - x;
+            if (y >= 0 && y < N) {
+              band.push({ x, y });
+            }
+          }
+          if (sum % 2 === 1) band.reverse();
+          out.push(...band);
+        }
+        return out;
+      }
+
+      function pathAntiDiagonalBands() {
+        const out = [];
+        for (let diff = -(N - 1); diff <= N - 1; diff += 1) {
+          const band = [];
+          for (let x = 0; x < N; x += 1) {
+            const y = x - diff;
+            if (y >= 0 && y < N) {
+              band.push({ x, y });
+            }
+          }
+          if ((diff + N) % 2 === 1) band.reverse();
+          out.push(...band);
+        }
+        return out;
+      }
+
+      function pathSpiralIn() {
+        const out = [];
+        let left = 0;
+        let right = N - 1;
+        let top = 0;
+        let bottom = N - 1;
+
+        while (left <= right && top <= bottom) {
+          for (let x = left; x <= right; x += 1) out.push({ x, y: top });
+          top += 1;
+          for (let y = top; y <= bottom; y += 1) out.push({ x: right, y });
+          right -= 1;
+          if (top <= bottom) {
+            for (let x = right; x >= left; x -= 1) out.push({ x, y: bottom });
+            bottom -= 1;
+          }
+          if (left <= right) {
+            for (let y = bottom; y >= top; y -= 1) out.push({ x: left, y });
+            left += 1;
+          }
+        }
+        return out;
+      }
+
+      function pathConcentricSquares() {
+        const out = [];
+        for (let ring = 0; ring < N / 2; ring += 1) {
+          const min = ring;
+          const max = N - 1 - ring;
+
+          for (let x = min; x <= max; x += 1) out.push({ x, y: min });
+          for (let y = min + 1; y <= max; y += 1) out.push({ x: max, y });
+          for (let x = max - 1; x >= min; x -= 1) out.push({ x, y: max });
+          for (let y = max - 1; y > min; y -= 1) out.push({ x: min, y });
+        }
+        return out;
+      }
+
+      function pathCheckerBlocks2x2() {
+        const out = [];
+        for (let by = 0; by < N; by += 2) {
+          for (let bx = 0; bx < N; bx += 2) {
+            out.push({ x: bx, y: by });
+            out.push({ x: bx + 1, y: by });
+            out.push({ x: bx + 1, y: by + 1 });
+            out.push({ x: bx, y: by + 1 });
+          }
+        }
+        return out;
+      }
+
+      function pathCenterOut() {
+        const center = (N - 1) / 2;
+        const out = allCoords();
+        out.sort((a, b) => {
+          const da = Math.abs(a.x - center) + Math.abs(a.y - center);
+          const db = Math.abs(b.x - center) + Math.abs(b.y - center);
+          if (da !== db) return da - db;
+
+          const aa = Math.atan2(a.y - center, a.x - center);
+          const ab = Math.atan2(b.y - center, b.x - center);
+          if (aa !== ab) return aa - ab;
+
+          return a.y - b.y || a.x - b.x;
+        });
+        return out;
+      }
+
+      const PATTERNS = {
+        rows: { label: "Rows (horizontal bands)", path: pathRows(), phaseStep: 10 },
+        columns: { label: "Columns (vertical bands)", path: pathColumns(), phaseStep: 10 },
+        diagonal: { label: "Diagonal bands", path: pathDiagonalBands(), phaseStep: 2 },
+        antiDiagonal: { label: "Anti-diagonal bands", path: pathAntiDiagonalBands(), phaseStep: 2 },
+        spiral: { label: "Spiral in", path: pathSpiralIn(), phaseStep: 4 },
+        rings: { label: "Concentric squares", path: pathConcentricSquares(), phaseStep: 4 },
+        checker2: { label: "2x2 checker blocks", path: pathCheckerBlocks2x2(), phaseStep: 4 },
+        centerOut: { label: "Center-out", path: pathCenterOut(), phaseStep: 1 }
+      };
+
+      function validatePath(path, name) {
+        if (!Array.isArray(path) || path.length !== TOTAL) {
+          throw new Error(`Invalid path length for ${name}`);
+        }
+        const seen = new Set();
+        for (const cell of path) {
+          if (
+            !cell ||
+            !Number.isInteger(cell.x) ||
+            !Number.isInteger(cell.y) ||
+            cell.x < 0 ||
+            cell.x >= N ||
+            cell.y < 0 ||
+            cell.y >= N
+          ) {
+            throw new Error(`Invalid cell in ${name}`);
+          }
+          const key = `${cell.x},${cell.y}`;
+          if (seen.has(key)) {
+            throw new Error(`Duplicate cell in ${name}: ${key}`);
+          }
+          seen.add(key);
+        }
+      }
+
+      for (const [key, def] of Object.entries(PATTERNS)) {
+        validatePath(def.path, key);
+      }
+
+      function transformCell(cell, rot, mirrorX, mirrorY) {
+        let x = cell.x;
+        let y = cell.y;
+        for (let i = 0; i < rot; i += 1) {
+          const nx = N - 1 - y;
+          const ny = x;
+          x = nx;
+          y = ny;
+        }
+        if (mirrorX) x = N - 1 - x;
+        if (mirrorY) y = N - 1 - y;
+        return { x, y };
+      }
+
+      function effectivePhase(patternKey, phaseInput) {
+        const step = PATTERNS[patternKey].phaseStep || 1;
+        return ((phaseInput * step) % TOTAL + TOTAL) % TOTAL;
+      }
+
+      function shiftPath(path, phase) {
+        const p = ((phase % TOTAL) + TOTAL) % TOTAL;
+        if (p === 0) return path.slice();
+        return path.slice(p).concat(path.slice(0, p));
+      }
+
+      function drawGridLines(svg) {
+        for (let i = 0; i <= N; i += 1) {
+          const v = i * CELL;
+          const lineV = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          lineV.setAttribute("x1", String(v));
+          lineV.setAttribute("y1", "0");
+          lineV.setAttribute("x2", String(v));
+          lineV.setAttribute("y2", String(SIZE));
+          lineV.setAttribute("stroke", "#000");
+          lineV.setAttribute("stroke-width", "0.7");
+          lineV.setAttribute("opacity", "0.08");
+          svg.appendChild(lineV);
+
+          const lineH = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          lineH.setAttribute("x1", "0");
+          lineH.setAttribute("y1", String(v));
+          lineH.setAttribute("x2", String(SIZE));
+          lineH.setAttribute("y2", String(v));
+          lineH.setAttribute("stroke", "#000");
+          lineH.setAttribute("stroke-width", "0.7");
+          lineH.setAttribute("opacity", "0.08");
+          svg.appendChild(lineH);
+        }
+      }
+
+      function renderToSvg(svg, opts) {
+        while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+        const basePath = PATTERNS[opts.pattern].path;
+        const transformed = basePath.map((cell) =>
+          transformCell(cell, opts.rot, opts.mirrorX, opts.mirrorY)
+        );
+        const phase = effectivePhase(opts.pattern, opts.phase);
+        const path = shiftPath(transformed, phase);
+
+        for (let i = 0; i < TOTAL; i += 1) {
+          const cell = path[i];
+          const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          rect.setAttribute("x", String(cell.x * CELL));
+          rect.setAttribute("y", String(cell.y * CELL));
+          rect.setAttribute("width", String(CELL));
+          rect.setAttribute("height", String(CELL));
+          rect.setAttribute("fill", COLORS[i]);
+          rect.setAttribute("stroke", "#000");
+          rect.setAttribute("stroke-opacity", "0.3");
+          rect.setAttribute("stroke-width", "0.8");
+          svg.appendChild(rect);
+
+          if (opts.showOrder) {
+            const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            t.setAttribute("x", String(cell.x * CELL + 6));
+            t.setAttribute("y", String(cell.y * CELL + 14));
+            t.setAttribute("font-size", "10");
+            t.setAttribute("font-family", "monospace");
+            t.setAttribute("fill", "#000");
+            t.textContent = String(i + 1);
+            svg.appendChild(t);
+          }
+        }
+
+        drawGridLines(svg);
+      }
+
+      function readUiState() {
+        return {
+          pattern: patternSelect.value,
+          rot: Number(rotationSelect.value),
+          mirrorX: mirrorXInput.checked,
+          mirrorY: mirrorYInput.checked,
+          phase: Number(phaseInput.value),
+          showOrder: showOrderInput.checked
+        };
+      }
+
+      function renderMain() {
+        const opts = readUiState();
+        const phaseShift = effectivePhase(opts.pattern, opts.phase);
+        const phaseStep = PATTERNS[opts.pattern].phaseStep || 1;
+        renderToSvg(mainSvg, opts);
+        meta.textContent =
+          `Pattern: ${PATTERNS[opts.pattern].label} | ` +
+          `Rotation: ${opts.rot * 90} deg | ` +
+          `MirrorX: ${opts.mirrorX} | MirrorY: ${opts.mirrorY} | ` +
+          `Phase index: ${opts.phase} (step ${phaseStep}, shift ${phaseShift}) | ` +
+          `Palette: ${PALETTE_NAME}`;
+      }
+
+      function createMiniPreview(title, opts) {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        const h = document.createElement("h3");
+        h.textContent = title;
+        card.appendChild(h);
+
+        const mini = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        mini.setAttribute("viewBox", `0 0 ${SIZE} ${SIZE}`);
+        mini.setAttribute("class", "mini");
+        renderToSvg(mini, { ...opts, showOrder: false });
+        card.appendChild(mini);
+
+        const small = document.createElement("div");
+        small.className = "small";
+        const phaseStep = PATTERNS[opts.pattern].phaseStep || 1;
+        const phaseShift = effectivePhase(opts.pattern, opts.phase);
+        small.textContent =
+          `${PATTERNS[opts.pattern].label}, rot ${opts.rot * 90}, phase ${opts.phase} -> ${phaseShift} (step ${phaseStep})`;
+        card.appendChild(small);
+
+        return card;
+      }
+
+      function renderGallery() {
+        gallery.innerHTML = "";
+        const presets = [
+          { label: "Rows base", pattern: "rows", rot: 0, mirrorX: false, mirrorY: false, phase: 0 },
+          { label: "Rows rotated", pattern: "rows", rot: 1, mirrorX: false, mirrorY: false, phase: 3 },
+          { label: "Diagonal phase", pattern: "diagonal", rot: 0, mirrorX: false, mirrorY: false, phase: 11 },
+          { label: "Spiral mirror", pattern: "spiral", rot: 0, mirrorX: true, mirrorY: false, phase: 5 },
+          { label: "Rings rotated", pattern: "rings", rot: 2, mirrorX: false, mirrorY: false, phase: 3 },
+          { label: "Checker shifted", pattern: "checker2", rot: 0, mirrorX: false, mirrorY: false, phase: 5 },
+          { label: "Center-out", pattern: "centerOut", rot: 0, mirrorX: false, mirrorY: false, phase: 0 },
+          { label: "Center-out mirror", pattern: "centerOut", rot: 3, mirrorX: true, mirrorY: false, phase: 15 }
+        ];
+
+        for (const preset of presets) {
+          gallery.appendChild(createMiniPreview(preset.label, preset));
+        }
+      }
+
+      function syncPhaseInputs(fromSlider) {
+        if (fromSlider) {
+          phaseNumInput.value = phaseInput.value;
+        } else {
+          let v = Number(phaseNumInput.value);
+          if (!Number.isFinite(v)) v = 0;
+          v = Math.max(0, Math.min(TOTAL - 1, Math.floor(v)));
+          phaseNumInput.value = String(v);
+          phaseInput.value = String(v);
+        }
+      }
+
+      function bindUi() {
+        patternSelect.innerHTML = Object.entries(PATTERNS)
+          .map(([key, def]) => `<option value="${key}">${def.label}</option>`)
+          .join("");
+
+        patternSelect.value = "rings";
+
+        patternSelect.addEventListener("change", renderMain);
+        rotationSelect.addEventListener("change", renderMain);
+        mirrorXInput.addEventListener("change", renderMain);
+        mirrorYInput.addEventListener("change", renderMain);
+        showOrderInput.addEventListener("change", renderMain);
+
+        phaseInput.addEventListener("input", () => {
+          syncPhaseInputs(true);
+          renderMain();
+        });
+
+        phaseNumInput.addEventListener("input", () => {
+          syncPhaseInputs(false);
+          renderMain();
+        });
+      }
+
+      bindUi();
+      renderGallery();
+      renderMain();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>P2P v8 Final Artwork</title>
+  <link rel="stylesheet" href="/aex-theme.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="nav-shell">
+      <a class="brand" href="/">
+        <img src="/aex-logo.svg" class="logo" alt="aex logo" />
+      </a>
+      <button id="connect" class="wallet-btn" type="button">Connect Wallet</button>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="panel control-grid">
+      <h1 class="stack-title">Final Artwork</h1>
+      <p id="final-status" class="meta">Loading final artwork state...</p>
+
+      <div class="control-row">
+        <div class="field">
+          <label for="round-input">Round</label>
+          <input id="round-input" type="number" min="1" step="1" value="1" />
+        </div>
+        <button id="load-round" type="button">Load Round</button>
+        <button id="load-latest" type="button">Load Latest Minted</button>
+      </div>
+
+      <div class="kvs">
+        <div class="kv"><strong>Round:</strong> <span id="out-round">-</span></div>
+        <div class="kv"><strong>Token ID:</strong> <span id="out-token">-</span></div>
+        <div class="kv"><strong>Owner:</strong> <span id="out-owner">-</span></div>
+        <div class="kv"><strong>Snapshot Hash:</strong> <span id="out-snapshot">-</span></div>
+        <div class="kv"><strong>Name:</strong> <span id="out-name">-</span></div>
+      </div>
+
+      <div class="preview-wrap">
+        <div class="preview-frame">
+          <img id="final-image" alt="Final artwork token image" />
+        </div>
+        <p id="final-image-note" class="small-note">Select a round to view minted final artwork.</p>
+      </div>
+
+      <div class="flow-links">
+        <a class="link-btn" href="/">Canvas</a>
+        <a class="link-btn" href="/auction.html">Auction</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="/ethers.min.js"></script>
+  <script src="/final-artwork.js"></script>
+</body>
+</html>
