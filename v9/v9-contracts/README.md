@@ -72,6 +72,10 @@ UI rehearsal note:
   - `/`
   - `/auction`
   - `/final`
+- Run backend + frontend from `v9/v9-app`:
+  - Terminal A: `npm start`
+  - Terminal B: `npm run dev`
+  - Optional seeding helper: `npm run rehearsal:seed-all`
 
 Security notes:
 - Use burner keys only.

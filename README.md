@@ -18,12 +18,24 @@ Each node has deterministic on-chain SVG identity, and live seeding determines a
   - Terminal freeze + reproducible snapshot.
   - `FinalAuction` 1/1 flow for node-owner bidding.
   - Deterministic post-auction shuffle support.
+- v8: Stable rehearsal/live-ops baseline on Sepolia:
+  - 100-node mint + signed websocket seeding + terminal lock.
+  - Auction activate/bid/finalize/withdraw.
+  - Winner claim of deterministic final artwork NFT.
+  - Round reset with deterministic shuffled carry-over.
+- v9: Frontend architecture upgrade (current):
+  - React (Vite), wagmi, viem, RainbowKit.
+  - React routes: `/`, `/auction`, `/final`.
+  - Same contracts/mechanics as v8.
+  - Pattern-preview logic modularized under `src/patterns`.
 
-### v7 Lock
-v7 is locked. Any new feature work starts in v8.
+### Active Version
+- Current active workspace: `v9/`
+- `v7` remains locked.
+- `v8` remains a stable reference/handoff baseline.
 
-### v8 Rehearsal Quick Steps
-Path: `v8/v8-contracts`
+### v9 Contracts Rehearsal Quick Steps
+Path: `v9/v9-contracts`
 
 1. Copy `.env.example` to `.env` and set:
    - `SEPOLIA_RPC`
@@ -40,31 +52,46 @@ npm run rehearsal:sepolia
 ```
 3. If rehearsal stops on gas cap, retry later instead of forcing higher spend.
 
-### v8 UI Rehearsal (recommended for final flow)
-Path: `v8/v8-app`
+### v9 App Rehearsal Quick Steps
+Path: `v9/v9-app`
 
-1. Run app server:
+1. Install deps:
 ```bash
 npm install
+```
+2. Run backend server:
+```bash
 npm start
 ```
-2. Use:
-   - `/` for mint + seeding terminal
-   - `/auction.html` for activate/bid/finalize/claim/reset
-   - `/final-artwork.html` to verify minted 1/1 tokenURI + SVG
-3. For rehearsal wallets derived from mnemonic, run:
+3. In another terminal run frontend:
 ```bash
-cd v8/v8-app
+npm run dev
+```
+4. Use:
+   - `http://localhost:5173/` for mint + seeding
+   - `http://localhost:5173/auction` for activate/bid/finalize/claim/reset
+   - `http://localhost:5173/final` to verify minted final NFT metadata/SVG
+5. For mnemonic-derived rehearsal wallets, run helper:
+```bash
 npm run rehearsal:seed-all
 ```
-4. Stop all seeded rehearsal sessions:
+6. Stop helper:
 ```bash
-cd v8/v8-app
 npm run rehearsal:seed-all:stop
 ```
 
-### v8 Handoff
-- Current execution handoff: `v8/HANDOFF.md`
+### v9 End-to-End Rehearsal Flow
+1. Confirm contracts deployed and app `contract-config.json` points to the deployed addresses.
+2. Open `/` and mint up to `100/100` (distributed wallets).
+3. Keep all nodes seeded until terminal lock (`100/100` seeded).
+4. Open `/auction` and verify terminal snapshot hash is present.
+5. Activate auction, place bids, and finalize after duration.
+6. Winner claims final artwork.
+7. Reset round and verify next-round shuffled mapping.
+8. Open `/final` and verify minted token data for the completed round.
+
+### Handoffs
+- v8 execution handoff: `v8/HANDOFF.md`
 
 ### Secrets Policy
 - Never commit `.env` or `.env.*` files.

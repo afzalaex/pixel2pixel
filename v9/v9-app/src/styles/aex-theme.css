@@ -208,33 +208,6 @@ body {
   text-align: center;
 }
 
-.flow-links {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin: 10px 0 14px;
-}
-
-.link-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 14px;
-  border: 1px solid var(--fg);
-  color: var(--fg);
-  text-decoration: none;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  transition: background-color 120ms ease, color 120ms ease;
-}
-
-.link-btn:hover {
-  background: var(--fg);
-  color: var(--bg);
-}
-
 .grid-wrap {
   display: flex;
   justify-content: center;

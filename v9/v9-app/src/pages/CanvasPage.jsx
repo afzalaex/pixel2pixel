@@ -8,7 +8,6 @@ import {
   useSwitchChain,
   useWriteContract
 } from "wagmi";
-import { Link } from "react-router-dom";
 
 import { fetchJson } from "../lib/api";
 import { MAX_NODES, ZERO_HASH } from "../lib/constants";
@@ -504,15 +503,6 @@ export function CanvasPage({ config }) {
             When all nodes are seeded, terminal snapshot locks, auction finalizes, winner claims,
             and reset advances the round with deterministic shuffle.
           </p>
-        </div>
-
-        <div className="flow-links">
-          <Link className="link-btn" to="/auction">
-            Auction UI
-          </Link>
-          <Link className="link-btn" to="/final">
-            Final Artwork UI
-          </Link>
         </div>
 
         <div className="grid-wrap">
