@@ -1,0 +1,398 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap");
+
+:root {
+  --bg: #000000;
+  --fg: #ffffff;
+  --muted: #b7b7b7;
+  --line: #2a2a2a;
+  --cell: #000000;
+  --cell-size: 40px;
+  --page-width: min(920px, calc(100% - 32px));
+  --font-main: "Space Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-main);
+}
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+  border-bottom: none;
+  box-shadow: none;
+}
+
+.nav-shell {
+  width: var(--page-width);
+  margin: 0 auto;
+  padding: 12px 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.logo {
+  width: 95px;
+  height: 28px;
+}
+
+.route-nav {
+  display: inline-flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.route-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--fg);
+  padding: 8px 10px;
+  text-decoration: none;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.route-link:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.route-link-active {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+
+.wallet-shell {
+  justify-self: end;
+}
+
+.app-btn,
+.wallet-btn {
+  padding: 10px 14px;
+  border: 1px solid var(--fg);
+  background: transparent;
+  color: var(--fg);
+  font-family: var(--font-main);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.app-btn:hover:enabled,
+.wallet-btn:hover:enabled {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.app-btn:disabled,
+.wallet-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.page {
+  width: var(--page-width);
+  margin: 16px auto 36px;
+}
+
+.page-hero {
+  text-align: center;
+  margin: 6px 0 14px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.page-caption {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.panel {
+  width: 100%;
+  background: var(--bg);
+  padding: 16px;
+  border: 1px solid var(--line);
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  margin-bottom: 10px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.network-warning {
+  margin: 0 0 12px;
+  border: 1px solid var(--fg);
+  padding: 10px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.final-progress-block {
+  padding: 12px;
+  margin: 0 0 12px;
+  border: 1px solid var(--line);
+}
+
+.final-progress-text {
+  color: var(--fg);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.final-progress-track {
+  border: 1px solid var(--line);
+  height: 12px;
+  background: var(--bg);
+}
+
+.final-progress-fill {
+  width: 0;
+  height: 100%;
+  background: var(--fg);
+  transition: width 180ms ease;
+}
+
+.final-progress-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.flow-links {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 10px 0 14px;
+}
+
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border: 1px solid var(--fg);
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.link-btn:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.grid-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(10, var(--cell-size));
+  grid-template-rows: repeat(10, var(--cell-size));
+  gap: 0;
+  line-height: 0;
+  font-size: 0;
+  background: #000;
+}
+
+.cell {
+  width: var(--cell-size);
+  height: var(--cell-size);
+  background: var(--cell);
+  position: relative;
+  overflow: hidden;
+}
+
+.cell img,
+.cell-fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  display: block;
+  image-rendering: pixelated;
+}
+
+#mint {
+  width: fit-content;
+  margin: 14px auto 0;
+  display: block;
+}
+
+#seeder {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.wallets {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 12px;
+  text-align: center;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.stack-title {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.control-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field label {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.field input {
+  width: 180px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-main);
+}
+
+.kvs {
+  display: grid;
+  gap: 8px;
+}
+
+.kv {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.kv strong {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.preview-wrap {
+  margin-top: 10px;
+}
+
+.preview-frame {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--line);
+  background: #000;
+}
+
+.preview-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.small-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@media (max-width: 860px) {
+  .nav-shell {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .wallet-shell {
+    justify-self: center;
+  }
+}
+
+@media (max-width: 680px) {
+  :root {
+    --cell-size: 31px;
+    --page-width: calc(100% - 20px);
+  }
+
+  .page-title {
+    font-size: 24px;
+  }
+
+  .field input {
+    width: 140px;
+  }
+}

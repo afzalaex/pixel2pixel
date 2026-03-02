@@ -1,0 +1,20 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "0xD94100B1a659eB523950Ad956718719c43A4165D",
+  "nodesV8": {
+    "contractName": "NodesV8",
+    "address": "0x9459D54c0D8A80ae7C71AcdE5f7bFD61F54ab266"
+  },
+  "finalAuction": {
+    "contractName": "FinalAuction",
+    "address": "0xDbaEC79042FA742812DAecEf530bF892b201a59E",
+    "nodesAddress": "0x9459D54c0D8A80ae7C71AcdE5f7bFD61F54ab266"
+  },
+  "finalArtwork": {
+    "contractName": "FinalArtwork",
+    "address": "0x35f21738e17cC01cF59892Fa67bEaEB23D514DeA",
+    "auctionAddress": "0xDbaEC79042FA742812DAecEf530bF892b201a59E",
+    "nodesAddress": "0x9459D54c0D8A80ae7C71AcdE5f7bFD61F54ab266"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "v9-app",
+  "version": "1.0.0",
+  "description": "Pixel2Pixel v9 app (React + wagmi + viem + RainbowKit)",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "rehearsal:seed-all": "node scripts/rehearsalSeedAll.js",
+    "rehearsal:seed-all:stop": "node scripts/stopRehearsalSeedAll.js"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "@rainbow-me/rainbowkit": "^2.2.8",
+    "@tanstack/react-query": "^5.76.0",
+    "dotenv": "^17.2.3",
+    "ethers": "^6.16.0",
+    "express": "^5.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.1",
+    "viem": "^2.31.0",
+    "wagmi": "^2.16.9",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.4.1",
+    "vite": "^6.3.5"
+  }
+}
