@@ -27,7 +27,7 @@ const config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
 
 const DEFAULT_CHAIN_ID = Number(config.chainId || 11155111);
 const DEFAULT_RPC = config.readRpc || "https://ethereum-sepolia-rpc.publicnode.com";
-const DEFAULT_SERVER_URL = `http://localhost:${Number(process.env.PORT || 8080)}`;
+const DEFAULT_SERVER_URL = `http://127.0.0.1:${Number(process.env.PORT || 8080)}`;
 
 const mnemonic = (process.env.SEED_MNEMONIC || process.env.REHEARSAL_MNEMONIC || "").trim();
 if (!mnemonic) {
@@ -46,8 +46,14 @@ if (!Number.isFinite(holdSeconds) || holdSeconds < 0) {
   throw new Error(`Invalid SEED_HOLD_SECONDS: ${process.env.SEED_HOLD_SECONDS}`);
 }
 
-const serverUrl = (process.env.SEED_SERVER_URL || DEFAULT_SERVER_URL).trim();
-const wsUrl = (process.env.SEED_WS_URL || serverUrl.replace(/^http/i, "ws")).trim();
+const explicitServerUrl = (process.env.SEED_SERVER_URL || "").trim();
+const explicitWsUrl = (process.env.SEED_WS_URL || "").trim();
+
+const serverUrl = (explicitServerUrl || DEFAULT_SERVER_URL).trim();
+const wsUrl = (explicitWsUrl || serverUrl.replace(/^http/i, "ws")).trim();
+
+let activeServerUrl = serverUrl;
+let activeWsUrl = wsUrl;
 
 const rpcUrl =
   process.env.SEPOLIA_RPC ||
@@ -71,6 +77,58 @@ function seedMessage(nonce) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function serverUrlCandidates() {
+  if (explicitServerUrl) {
+    return [serverUrl];
+  }
+
+  const out = [serverUrl];
+  if (serverUrl.includes("127.0.0.1")) {
+    out.push(serverUrl.replace("127.0.0.1", "localhost"));
+  } else if (serverUrl.includes("localhost")) {
+    out.push(serverUrl.replace("localhost", "127.0.0.1"));
+  }
+
+  return Array.from(new Set(out));
+}
+
+function wsUrlFromServer(url) {
+  return url.replace(/^http/i, "ws");
+}
+
+async function assertBackendReachable(timeoutMs = 5000) {
+  if (typeof fetch !== "function") {
+    return serverUrl;
+  }
+
+  const attempts = [];
+
+  for (const candidate of serverUrlCandidates()) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(`${candidate}/healthz`, {
+        cache: "no-store",
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        throw new Error(`healthz returned ${response.status}`);
+      }
+      return candidate;
+    } catch (error) {
+      const detail = error && error.message ? error.message : "unknown error";
+      attempts.push(`${candidate} (${detail})`);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  throw new Error(
+    `Backend unreachable: ${attempts.join("; ")}. Start v9 app backend with "npm start", or set SEED_SERVER_URL/SEED_WS_URL to the active host.`
+  );
 }
 
 function isPidRunning(pid) {
@@ -139,7 +197,7 @@ async function resolveSeeders() {
 
 async function connectSeeder(seeder, timeoutMs = 20000) {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(activeWsUrl);
     let done = false;
 
     const timer = setTimeout(() => {
@@ -205,12 +263,23 @@ async function connectSeeder(seeder, timeoutMs = 20000) {
     });
 
     ws.on("error", (error) => {
-      finishError(`Socket error for node ${seeder.nodeId}: ${error.message || "unknown error"}`);
+      const detail = [error?.message, error?.code, error?.errno]
+        .filter((part) => part !== undefined && part !== null && part !== "")
+        .join(" | ");
+      finishError(`Socket error for node ${seeder.nodeId}: ${detail || "unknown error"}`);
     });
 
-    ws.on("close", () => {
+    ws.on("close", (code, reasonBuffer) => {
       if (!done) {
-        finishError(`Socket closed before ack for node ${seeder.nodeId}`);
+        const reason =
+          typeof reasonBuffer === "string"
+            ? reasonBuffer
+            : reasonBuffer && reasonBuffer.length
+              ? reasonBuffer.toString()
+              : "";
+        finishError(
+          `Socket closed before ack for node ${seeder.nodeId} (code ${code}${reason ? `: ${reason}` : ""})`
+        );
       }
     });
   });
@@ -222,7 +291,7 @@ async function fetchRoundState() {
   }
 
   try {
-    const response = await fetch(`${serverUrl}/round-state`, { cache: "no-store" });
+    const response = await fetch(`${activeServerUrl}/round-state`, { cache: "no-store" });
     if (!response.ok) {
       return null;
     }
@@ -235,9 +304,18 @@ async function fetchRoundState() {
 async function main() {
   claimPidFile();
   console.log(`Rehearsal seeding helper`);
+  console.log(`  server: ${serverUrl}`);
   console.log(`  ws: ${wsUrl}`);
   console.log(`  rpc: ${rpcUrl}`);
   console.log(`  deriving up to: ${seedCount} wallets`);
+  activeServerUrl = await assertBackendReachable();
+  if (!explicitWsUrl) {
+    activeWsUrl = wsUrlFromServer(activeServerUrl);
+  }
+  console.log(`  backend: reachable (${activeServerUrl})`);
+  if (activeWsUrl !== wsUrl) {
+    console.log(`  ws active: ${activeWsUrl}`);
+  }
 
   const seeders = await resolveSeeders();
   if (!seeders.length) {
@@ -265,6 +343,12 @@ async function main() {
     for (const message of failures.slice(0, 10)) {
       console.log(`    - ${message}`);
     }
+  }
+
+  if (sessions.length === 0) {
+    throw new Error(
+      "No seeding sessions connected. Verify backend is running and SEED_SERVER_URL/SEED_WS_URL point to the active backend host."
+    );
   }
 
   const heartbeat = setInterval(() => {

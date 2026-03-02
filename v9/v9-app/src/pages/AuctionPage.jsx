@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useAccount,
   useChainId,
@@ -12,6 +12,9 @@ import { fetchJson } from "../lib/api";
 import { ZERO_HASH } from "../lib/constants";
 import { formatTimestamp } from "../lib/format";
 import { decodeDataUri, svgToDataUri } from "../lib/encoding";
+
+const EXPECTED_SVG_RENDERER = "v9-pattern-canvas";
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 function yesNo(value) {
   return value ? "yes" : "no";
@@ -37,10 +40,17 @@ export function AuctionPage({ config }) {
   const [bidAmount, setBidAmount] = useState("0.00002");
   const [walletNode, setWalletNode] = useState(0);
   const [previewSvgUri, setPreviewSvgUri] = useState("");
-  const previewCacheRef = useRef(new Map());
+  const [nowTs, setNowTs] = useState(() => Math.floor(Date.now() / 1000));
 
   const isCorrectChain = !isConnected || chainId === config.chainId;
   const chainMismatch = isConnected && !isCorrectChain;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNowTs(Math.floor(Date.now() / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchFinalSvg = useCallback(async (seedHash) => {
     const normalizedHash = (seedHash || "").toLowerCase();
@@ -48,23 +58,27 @@ export function AuctionPage({ config }) {
       return "";
     }
 
-    if (previewCacheRef.current.has(normalizedHash)) {
-      return previewCacheRef.current.get(normalizedHash);
-    }
-
     const payload = await fetchJson("/final-artwork-svg");
+    if (payload.svgRenderer !== EXPECTED_SVG_RENDERER) {
+      throw new Error(
+        "Legacy backend detected for /final-artwork-svg. Restart v9 backend and ensure it serves renderer v9-pattern-canvas."
+      );
+    }
     if (String(payload.seedHash || "").toLowerCase() !== normalizedHash) {
       throw new Error("Terminal hash mismatch between auction state and preview SVG");
     }
 
     const svgUri = svgToDataUri(payload.svg || "");
-    previewCacheRef.current.set(normalizedHash, svgUri);
     return svgUri;
   }, []);
 
-  const refreshAll = useCallback(async () => {
+  const fetchAuctionState = useCallback(async () => {
     const query = address ? `?wallet=${encodeURIComponent(address)}` : "";
-    const state = await fetchJson(`/auction-state${query}`);
+    return fetchJson(`/auction-state${query}`);
+  }, [address]);
+
+  const refreshAll = useCallback(async () => {
+    const state = await fetchAuctionState();
     setAuctionState(state);
 
     if (address && publicClient) {
@@ -98,7 +112,7 @@ export function AuctionPage({ config }) {
     } else {
       setPreviewSvgUri("");
     }
-  }, [address, config.nodes.abi, config.nodes.address, fetchFinalSvg, publicClient]);
+  }, [config.nodes.abi, config.nodes.address, fetchAuctionState, fetchFinalSvg, publicClient]);
 
   useEffect(() => {
     refreshAll()
@@ -207,12 +221,12 @@ export function AuctionPage({ config }) {
     });
   };
 
-  const claimFinalArtwork = async () => {
-    if (!auctionState?.snapshotHash || auctionState.snapshotHash === ZERO_HASH) {
+  const claimFinalArtworkFromState = async (stateInput = auctionState) => {
+    if (!stateInput?.snapshotHash || stateInput.snapshotHash === ZERO_HASH) {
       throw new Error("Auction snapshot hash not set");
     }
 
-    const svgUri = await fetchFinalSvg(auctionState.snapshotHash);
+    const svgUri = await fetchFinalSvg(stateInput.snapshotHash);
     if (!svgUri.startsWith("data:image/svg+xml;base64,")) {
       throw new Error("Invalid SVG payload for final artwork claim");
     }
@@ -227,6 +241,58 @@ export function AuctionPage({ config }) {
         chainId: config.chainId
       });
     });
+  };
+
+  const claimFinalArtwork = async () => {
+    await claimFinalArtworkFromState(auctionState);
+  };
+
+  const finalizeAndClaimWinner = async () => {
+    if (!auctionState) {
+      throw new Error("Auction state not ready");
+    }
+
+    let latest = auctionState;
+    const endTs = Number(latest.auctionEnd || 0);
+    const hasEnded =
+      Boolean(latest.auctionActive) && endTs > 0 && Math.floor(Date.now() / 1000) >= endTs;
+
+    if (latest.auctionActive) {
+      if (!hasEnded) {
+        throw new Error("Auction still running");
+      }
+
+      await runTx("Finalize auction", async () => {
+        return writeContractAsync({
+          address: config.finalAuction.address,
+          abi: config.finalAuction.abi,
+          functionName: "finalizeAuction",
+          chainId: config.chainId
+        });
+      });
+      latest = await fetchAuctionState();
+      setAuctionState(latest);
+    }
+
+    const tokenId = Number(latest.finalArtworkTokenId || 0);
+    if (tokenId > 0) {
+      setStatus(`Auction settled. Final artwork token #${tokenId} already minted.`);
+      return;
+    }
+
+    const highest =
+      typeof latest.highestBidder === "string" ? latest.highestBidder.toLowerCase() : "";
+    const caller = (address || "").toLowerCase();
+    if (!latest.finalized || !highest || highest === ZERO_ADDRESS) {
+      setStatus("Auction closed without winner.");
+      return;
+    }
+    if (!caller || caller !== highest) {
+      setStatus("Auction finalized. Highest bidder wallet must claim final artwork.");
+      return;
+    }
+
+    await claimFinalArtworkFromState(latest);
   };
 
   const resetRound = async () => {
@@ -269,6 +335,18 @@ export function AuctionPage({ config }) {
     return "0 ETH";
   }, [auctionState]);
 
+  const auctionEndTs = Number(auctionState?.auctionEnd || 0);
+  const auctionEnded = Boolean(auctionState?.auctionActive) && auctionEndTs > 0 && nowTs >= auctionEndTs;
+  const auctionPhase = auctionState
+    ? auctionState.auctionActive
+      ? auctionEnded
+        ? "ended (awaiting finalization)"
+        : "running"
+      : auctionState.finalized
+        ? "finalized"
+        : "inactive"
+    : "-";
+
   return (
     <section className="panel control-grid">
       <h1 className="stack-title">Auction Console</h1>
@@ -303,6 +381,9 @@ export function AuctionPage({ config }) {
         </div>
         <div className="kv">
           <strong>Auction Active:</strong> <span>{yesNo(Boolean(auctionState?.auctionActive))}</span>
+        </div>
+        <div className="kv">
+          <strong>Auction Phase:</strong> <span>{auctionPhase}</span>
         </div>
         <div className="kv">
           <strong>Finalized:</strong> <span>{yesNo(Boolean(auctionState?.finalized))}</span>
@@ -372,6 +453,15 @@ export function AuctionPage({ config }) {
       </div>
 
       <div className="control-row">
+        <button
+          type="button"
+          className="app-btn"
+          onClick={() =>
+            finalizeAndClaimWinner().catch((error) => setStatus(error.message || "Settle failed"))
+          }
+        >
+          Finalize + Claim Winner
+        </button>
         <button
           type="button"
           className="app-btn"

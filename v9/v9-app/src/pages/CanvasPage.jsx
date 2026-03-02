@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useAccount,
   useChainId,
@@ -11,7 +11,6 @@ import {
 
 import { fetchJson } from "../lib/api";
 import { MAX_NODES, ZERO_HASH } from "../lib/constants";
-import { fallbackNodeSvg, parseNodeTokenUri, svgToDataUri } from "../lib/encoding";
 import { buildNodeLayout, normalizeShuffleSeed } from "../lib/layout";
 import { useSeedingSocket } from "../hooks/useSeedingSocket";
 import { BRAND_COLORS, buildPatternCellOrder, patternLabel } from "../patterns/engine";
@@ -153,9 +152,6 @@ export function CanvasPage({ config }) {
   const [actionStatus, setActionStatus] = useState("Round state synchronizing...");
   const [seedingEnabled, setSeedingEnabled] = useState(false);
   const [minting, setMinting] = useState(false);
-  const [nodeImages, setNodeImages] = useState({});
-  const nodeImagesRef = useRef({});
-  const pendingNodeFetchRef = useRef(new Map());
 
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
@@ -245,10 +241,6 @@ export function CanvasPage({ config }) {
   }, [fetchRoundState]);
 
   useEffect(() => {
-    nodeImagesRef.current = nodeImages;
-  }, [nodeImages]);
-
-  useEffect(() => {
     if (!isConnected || ownedNode <= 0 || roundState.terminal || !isCorrectChain) {
       setSeedingEnabled(false);
     }
@@ -270,76 +262,6 @@ export function CanvasPage({ config }) {
       setSeedingEnabled(false);
     }
   });
-
-  const ensureNodeImage = useCallback(
-    async (nodeId) => {
-      if (!publicClient) {
-        return;
-      }
-
-      if (nodeImagesRef.current[nodeId]) {
-        return;
-      }
-
-      if (pendingNodeFetchRef.current.has(nodeId)) {
-        await pendingNodeFetchRef.current.get(nodeId);
-        return;
-      }
-
-      const request = (async () => {
-        let src = "";
-        try {
-          const tokenUri = await publicClient.readContract({
-            address: config.nodes.address,
-            abi: config.nodes.abi,
-            functionName: "tokenURI",
-            args: [BigInt(nodeId)]
-          });
-          const parsed = parseNodeTokenUri(tokenUri);
-          src = svgToDataUri(parsed.svg);
-        } catch {
-          src = svgToDataUri(fallbackNodeSvg(nodeId));
-        } finally {
-          pendingNodeFetchRef.current.delete(nodeId);
-        }
-
-        setNodeImages((previous) => {
-          if (previous[nodeId] === src) {
-            return previous;
-          }
-          return {
-            ...previous,
-            [nodeId]: src
-          };
-        });
-      })();
-
-      pendingNodeFetchRef.current.set(nodeId, request);
-      await request;
-    },
-    [config.nodes.abi, config.nodes.address, publicClient]
-  );
-
-  const aliveNodeIds = useMemo(() => {
-    return Object.keys(roundState.alive)
-      .map((value) => Number(value))
-      .filter(
-        (nodeId) =>
-          Number.isInteger(nodeId) && nodeId >= 1 && nodeId <= roundState.totalSupply
-      )
-      .sort((a, b) => a - b);
-  }, [roundState.alive, roundState.totalSupply]);
-
-  const aliveNodeKey = useMemo(() => aliveNodeIds.join(","), [aliveNodeIds]);
-  useEffect(() => {
-    if (!aliveNodeIds.length) {
-      return;
-    }
-
-    Promise.allSettled(aliveNodeIds.map((nodeId) => ensureNodeImage(nodeId))).catch(
-      () => {}
-    );
-  }, [aliveNodeKey, aliveNodeIds, ensureNodeImage]);
 
   const patternConfig = useMemo(
     () => patternConfigForRound(roundState.roundId),
@@ -363,6 +285,15 @@ export function CanvasPage({ config }) {
       patternCellOrder
     );
   }, [patternCellOrder, roundState.shuffleSeed, roundState.totalSupply]);
+
+  const cellPalette = useMemo(() => {
+    const colorsByCell = new Array(MAX_NODES).fill("#000000");
+    for (let i = 0; i < MAX_NODES; i += 1) {
+      const cellIndex = patternCellOrder[i];
+      colorsByCell[cellIndex] = BRAND_COLORS[i];
+    }
+    return colorsByCell;
+  }, [patternCellOrder]);
 
   const roundSummary = useMemo(() => {
     return statusMessage({
@@ -509,8 +440,7 @@ export function CanvasPage({ config }) {
           <div className="grid" id="grid">
             {layout.cellToNode.map((nodeId, cellIndex) => {
               const wallet = nodeId ? roundState.alive[nodeId] : "";
-              const src = nodeId ? nodeImages[nodeId] : "";
-              const fallbackColor = BRAND_COLORS[(nodeId - 1 + MAX_NODES) % MAX_NODES];
+              const cellColor = cellPalette[cellIndex] || "#000000";
 
               return (
                 <div
@@ -518,11 +448,7 @@ export function CanvasPage({ config }) {
                   key={cellIndex}
                   title={wallet ? `${nodeId} - ${wallet}` : ""}
                 >
-                  {wallet && src ? (
-                    <img src={src} alt={`Node ${nodeId}`} />
-                  ) : wallet ? (
-                    <div className="cell-fallback" style={{ background: fallbackColor }} />
-                  ) : null}
+                  {wallet ? <div className="cell-fill" style={{ background: cellColor }} /> : null}
                 </div>
               );
             })}

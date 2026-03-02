@@ -120,7 +120,375 @@ let finalSvgCache = {
   svg: ""
 };
 
-const nodeColorCache = new Map();
+const PATTERN_GRID = GRID_COLUMNS;
+const ACTIVE_PATTERN_CONFIG = Object.freeze({
+  key: "rings",
+  rotation: 0,
+  mirrorX: false,
+  mirrorY: false,
+  phase: 0
+});
+const SVG_RENDERER_ID = "v9-pattern-canvas";
+const PALETTE_ID = "BRAND_ORDERED_155_255_V3";
+
+function rgbToHex(r, g, b) {
+  const toHex = (value) => value.toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+}
+
+function hsvToRgb(h, s, v) {
+  const sat = s / 100;
+  const val = v / 100;
+  const c = val * sat;
+  const hp = h / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+
+  let r1 = 0;
+  let g1 = 0;
+  let b1 = 0;
+
+  if (hp >= 0 && hp < 1) {
+    r1 = c;
+    g1 = x;
+  } else if (hp >= 1 && hp < 2) {
+    r1 = x;
+    g1 = c;
+  } else if (hp >= 2 && hp < 3) {
+    g1 = c;
+    b1 = x;
+  } else if (hp >= 3 && hp < 4) {
+    g1 = x;
+    b1 = c;
+  } else if (hp >= 4 && hp < 5) {
+    r1 = x;
+    b1 = c;
+  } else {
+    r1 = c;
+    b1 = x;
+  }
+
+  const m = val - c;
+  return [
+    Math.round((r1 + m) * 255),
+    Math.round((g1 + m) * 255),
+    Math.round((b1 + m) * 255)
+  ];
+}
+
+function mapToBrandRange(channel) {
+  const t = channel / 255;
+  const shaped = Math.max(0, (t - 0.35) / 0.65);
+  return 155 + Math.round(shaped * 100);
+}
+
+function buildBrandColors() {
+  const colors = [];
+  for (let hueBand = 0; hueBand < 10; hueBand += 1) {
+    for (let tone = 0; tone < 10; tone += 1) {
+      const hue = hueBand * 36;
+      const saturation = 96 - tone * 2;
+      const value = 74 + tone * 2.2;
+      const [r, g, b] = hsvToRgb(hue, saturation, value);
+      colors.push(
+        rgbToHex(
+          mapToBrandRange(r),
+          mapToBrandRange(g),
+          mapToBrandRange(b)
+        )
+      );
+    }
+  }
+  return colors;
+}
+
+function allCoords() {
+  const coords = [];
+  for (let y = 0; y < PATTERN_GRID; y += 1) {
+    for (let x = 0; x < PATTERN_GRID; x += 1) {
+      coords.push({ x, y });
+    }
+  }
+  return coords;
+}
+
+function pathRows() {
+  return allCoords();
+}
+
+function pathColumns() {
+  const coords = [];
+  for (let x = 0; x < PATTERN_GRID; x += 1) {
+    for (let y = 0; y < PATTERN_GRID; y += 1) {
+      coords.push({ x, y });
+    }
+  }
+  return coords;
+}
+
+function pathDiagonalBands() {
+  const coords = [];
+  for (let sum = 0; sum <= (PATTERN_GRID - 1) * 2; sum += 1) {
+    const band = [];
+    for (let x = 0; x < PATTERN_GRID; x += 1) {
+      const y = sum - x;
+      if (y >= 0 && y < PATTERN_GRID) {
+        band.push({ x, y });
+      }
+    }
+    if (sum % 2 === 1) {
+      band.reverse();
+    }
+    coords.push(...band);
+  }
+  return coords;
+}
+
+function pathAntiDiagonalBands() {
+  const coords = [];
+  for (let diff = -(PATTERN_GRID - 1); diff <= PATTERN_GRID - 1; diff += 1) {
+    const band = [];
+    for (let x = 0; x < PATTERN_GRID; x += 1) {
+      const y = x - diff;
+      if (y >= 0 && y < PATTERN_GRID) {
+        band.push({ x, y });
+      }
+    }
+    if ((diff + PATTERN_GRID) % 2 === 1) {
+      band.reverse();
+    }
+    coords.push(...band);
+  }
+  return coords;
+}
+
+function pathSpiralIn() {
+  const coords = [];
+  let left = 0;
+  let right = PATTERN_GRID - 1;
+  let top = 0;
+  let bottom = PATTERN_GRID - 1;
+
+  while (left <= right && top <= bottom) {
+    for (let x = left; x <= right; x += 1) coords.push({ x, y: top });
+    top += 1;
+
+    for (let y = top; y <= bottom; y += 1) coords.push({ x: right, y });
+    right -= 1;
+
+    if (top <= bottom) {
+      for (let x = right; x >= left; x -= 1) coords.push({ x, y: bottom });
+      bottom -= 1;
+    }
+
+    if (left <= right) {
+      for (let y = bottom; y >= top; y -= 1) coords.push({ x: left, y });
+      left += 1;
+    }
+  }
+
+  return coords;
+}
+
+function pathConcentricSquares() {
+  const coords = [];
+  for (let ring = 0; ring < PATTERN_GRID / 2; ring += 1) {
+    const min = ring;
+    const max = PATTERN_GRID - 1 - ring;
+
+    for (let x = min; x <= max; x += 1) coords.push({ x, y: min });
+    for (let y = min + 1; y <= max; y += 1) coords.push({ x: max, y });
+    for (let x = max - 1; x >= min; x -= 1) coords.push({ x, y: max });
+    for (let y = max - 1; y > min; y -= 1) coords.push({ x: min, y });
+  }
+  return coords;
+}
+
+function pathCheckerBlocks2x2() {
+  const coords = [];
+  for (let by = 0; by < PATTERN_GRID; by += 2) {
+    for (let bx = 0; bx < PATTERN_GRID; bx += 2) {
+      coords.push({ x: bx, y: by });
+      coords.push({ x: bx + 1, y: by });
+      coords.push({ x: bx + 1, y: by + 1 });
+      coords.push({ x: bx, y: by + 1 });
+    }
+  }
+  return coords;
+}
+
+function pathCenterOut() {
+  const center = (PATTERN_GRID - 1) / 2;
+  const coords = allCoords();
+  coords.sort((a, b) => {
+    const da = Math.abs(a.x - center) + Math.abs(a.y - center);
+    const db = Math.abs(b.x - center) + Math.abs(b.y - center);
+    if (da !== db) {
+      return da - db;
+    }
+
+    const aa = Math.atan2(a.y - center, a.x - center);
+    const ab = Math.atan2(b.y - center, b.x - center);
+    if (aa !== ab) {
+      return aa - ab;
+    }
+
+    return a.y - b.y || a.x - b.x;
+  });
+  return coords;
+}
+
+function validatePath(path, name) {
+  if (!Array.isArray(path) || path.length !== MAX_NODES) {
+    throw new Error(`Invalid path length for ${name}`);
+  }
+
+  const seen = new Set();
+  for (const cell of path) {
+    if (
+      !cell ||
+      !Number.isInteger(cell.x) ||
+      !Number.isInteger(cell.y) ||
+      cell.x < 0 ||
+      cell.x >= PATTERN_GRID ||
+      cell.y < 0 ||
+      cell.y >= PATTERN_GRID
+    ) {
+      throw new Error(`Invalid cell in ${name}`);
+    }
+
+    const key = `${cell.x},${cell.y}`;
+    if (seen.has(key)) {
+      throw new Error(`Duplicate cell in ${name}: ${key}`);
+    }
+    seen.add(key);
+  }
+}
+
+function transformCell(cell, rotationSteps, mirrorX, mirrorY) {
+  let x = cell.x;
+  let y = cell.y;
+
+  for (let step = 0; step < rotationSteps; step += 1) {
+    const nx = PATTERN_GRID - 1 - y;
+    const ny = x;
+    x = nx;
+    y = ny;
+  }
+
+  if (mirrorX) {
+    x = PATTERN_GRID - 1 - x;
+  }
+  if (mirrorY) {
+    y = PATTERN_GRID - 1 - y;
+  }
+
+  return { x, y };
+}
+
+function shiftPath(path, phase) {
+  const normalizedPhase = ((phase % MAX_NODES) + MAX_NODES) % MAX_NODES;
+  if (normalizedPhase === 0) {
+    return path.slice();
+  }
+  return path.slice(normalizedPhase).concat(path.slice(0, normalizedPhase));
+}
+
+const PATTERNS = Object.freeze({
+  rows: { path: pathRows(), phaseStep: 10 },
+  columns: { path: pathColumns(), phaseStep: 10 },
+  diagonal: { path: pathDiagonalBands(), phaseStep: 2 },
+  antiDiagonal: { path: pathAntiDiagonalBands(), phaseStep: 2 },
+  spiral: { path: pathSpiralIn(), phaseStep: 4 },
+  rings: { path: pathConcentricSquares(), phaseStep: 4 },
+  checker2: { path: pathCheckerBlocks2x2(), phaseStep: 4 },
+  centerOut: { path: pathCenterOut(), phaseStep: 1 }
+});
+
+for (const [key, definition] of Object.entries(PATTERNS)) {
+  validatePath(definition.path, key);
+}
+
+function effectivePatternPhase(patternKey, phaseInput) {
+  const definition = PATTERNS[patternKey] || PATTERNS.rows;
+  const step = definition.phaseStep || 1;
+  return ((phaseInput * step) % MAX_NODES + MAX_NODES) % MAX_NODES;
+}
+
+function buildTransformedPath(patternConfig) {
+  const key = patternConfig?.key || "rows";
+  const definition = PATTERNS[key] || PATTERNS.rows;
+  const rotation = Number(patternConfig?.rotation || 0) % 4;
+  const mirrorX = Boolean(patternConfig?.mirrorX);
+  const mirrorY = Boolean(patternConfig?.mirrorY);
+  const phaseIndex = Number(patternConfig?.phase || 0);
+  const phaseShift = effectivePatternPhase(key, phaseIndex);
+
+  const transformed = definition.path.map((cell) =>
+    transformCell(cell, rotation, mirrorX, mirrorY)
+  );
+
+  return shiftPath(transformed, phaseShift);
+}
+
+function buildPatternCellOrder(patternConfig) {
+  return buildTransformedPath(patternConfig).map((cell) => cell.y * PATTERN_GRID + cell.x);
+}
+
+function isValidShuffleSeed(seed) {
+  return (
+    typeof seed === "string" &&
+    /^0x[0-9a-fA-F]{64}$/.test(seed) &&
+    seed.toLowerCase() !== ethers.ZeroHash
+  );
+}
+
+function buildShufflePositions(seedHash, size = MAX_NODES) {
+  const positions = Array.from({ length: size }, (_, index) => index);
+  let entropy = seedHash;
+
+  for (let i = positions.length - 1; i > 0; i -= 1) {
+    entropy = ethers.keccak256(entropy);
+    const pick = Number(BigInt(entropy) % BigInt(i + 1));
+    const temp = positions[i];
+    positions[i] = positions[pick];
+    positions[pick] = temp;
+  }
+
+  return positions;
+}
+
+function buildCellToNodeMap(maxNodeId, shuffleSeed, patternCellOrder) {
+  const cap = Math.max(0, Math.min(Number(maxNodeId) || 0, MAX_NODES));
+  const cellToNode = new Array(MAX_NODES).fill(0);
+
+  if (isValidShuffleSeed(shuffleSeed)) {
+    const positions = buildShufflePositions(shuffleSeed, MAX_NODES);
+    for (let nodeId = 1; nodeId <= cap; nodeId += 1) {
+      const mappedIndex = positions[nodeId - 1];
+      const cellIndex = patternCellOrder[mappedIndex];
+      cellToNode[cellIndex] = nodeId;
+    }
+    return cellToNode;
+  }
+
+  for (let nodeId = 1; nodeId <= cap; nodeId += 1) {
+    const cellIndex = patternCellOrder[nodeId - 1];
+    cellToNode[cellIndex] = nodeId;
+  }
+
+  return cellToNode;
+}
+
+const BRAND_COLORS = buildBrandColors();
+const ACTIVE_PATTERN_CELL_ORDER = buildPatternCellOrder(ACTIVE_PATTERN_CONFIG);
+const CELL_COLORS = (() => {
+  const colorsByCell = new Array(MAX_NODES).fill("#000000");
+  for (let i = 0; i < MAX_NODES; i += 1) {
+    const cellIndex = ACTIVE_PATTERN_CELL_ORDER[i];
+    colorsByCell[cellIndex] = BRAND_COLORS[i];
+  }
+  return colorsByCell;
+})();
 
 function seedMessage(nonce) {
   return `P2P v8 seeding authorization\nNonce: ${nonce}`;
@@ -441,83 +809,47 @@ function dropConflictingSeeders(ws, verified) {
   }
 }
 
-function decodeDataUri(payload, expectedPrefix) {
-  if (typeof payload !== "string" || !payload.startsWith(expectedPrefix)) {
-    throw new Error("Invalid data URI");
+async function shuffleSeedForRound(roundId) {
+  if (!Number.isInteger(roundId) || roundId <= 1) {
+    return ethers.ZeroHash;
   }
 
-  const base64 = payload.slice(expectedPrefix.length);
-  return Buffer.from(base64, "base64").toString("utf8");
-}
-
-function decodeNodeSvg(tokenUri) {
-  const metadataText = decodeDataUri(tokenUri, "data:application/json;base64,");
-  const metadata = JSON.parse(metadataText);
-  return decodeDataUri(metadata.image, "data:image/svg+xml;base64,");
-}
-
-function extractPrimaryFill(svgText) {
-  const match = svgText.match(/fill=["'](#(?:[0-9a-fA-F]{6}))["']/i);
-  if (!match) {
-    return null;
-  }
-  return match[1].toUpperCase();
-}
-
-function deterministicColor(nodeId) {
-  const packed = ethers.solidityPacked(["uint256"], [BigInt(nodeId)]);
-  const hash = ethers.getBytes(ethers.keccak256(packed));
-
-  const r = Math.floor(hash[0] / 2) + 64;
-  const g = Math.floor(hash[1] / 2) + 64;
-  const b = Math.floor(hash[2] / 2) + 64;
-
-  return `#${r.toString(16).padStart(2, "0")}${g
-    .toString(16)
-    .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`.toUpperCase();
-}
-
-async function colorForNode(nodeId) {
-  if (nodeColorCache.has(nodeId)) {
-    return nodeColorCache.get(nodeId);
-  }
-
+  const previousRound = roundId - 1;
   try {
-    const tokenUri = await nodes.tokenURI(nodeId);
-    const svg = decodeNodeSvg(tokenUri);
-    const color = extractPrimaryFill(svg) || deterministicColor(nodeId);
-    nodeColorCache.set(nodeId, color);
-    return color;
+    const previousSnapshotHash = await nodes.finalSnapshotHashByRound(previousRound);
+    return deriveShuffleSeed(previousSnapshotHash, previousRound);
   } catch {
-    const fallback = deterministicColor(nodeId);
-    nodeColorCache.set(nodeId, fallback);
-    return fallback;
+    return ethers.ZeroHash;
   }
 }
 
 async function buildFinalArtworkSvg(snapshot) {
-  const colors = new Map();
   const nodeIds = [...snapshot.nodeIds].sort((a, b) => a - b);
-
-  await Promise.all(
-    nodeIds.map(async (nodeId) => {
-      colors.set(nodeId, await colorForNode(nodeId));
-    })
+  const seededNodes = new Set(nodeIds);
+  const maxNodeId = nodeIds.length > 0 ? Math.max(...nodeIds) : 0;
+  const roundShuffleSeed = await shuffleSeedForRound(snapshot.roundId);
+  const cellToNode = buildCellToNodeMap(
+    maxNodeId,
+    roundShuffleSeed,
+    ACTIVE_PATTERN_CELL_ORDER
   );
 
-  const lines = [];
-  lines.push(
+  const lines = [
     `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${CANVAS_SIZE}\" height=\"${CANVAS_SIZE}\" viewBox=\"0 0 ${CANVAS_SIZE} ${CANVAS_SIZE}\">`
-  );
+  ];
   lines.push(`<rect width=\"${CANVAS_SIZE}\" height=\"${CANVAS_SIZE}\" fill=\"#000000\"/>`);
 
-  for (const nodeId of nodeIds) {
-    const index = nodeId - 1;
-    const row = Math.floor(index / GRID_COLUMNS);
-    const col = index % GRID_COLUMNS;
+  for (let cellIndex = 0; cellIndex < MAX_NODES; cellIndex += 1) {
+    const nodeId = cellToNode[cellIndex];
+    if (!seededNodes.has(nodeId)) {
+      continue;
+    }
+
+    const row = Math.floor(cellIndex / GRID_COLUMNS);
+    const col = cellIndex % GRID_COLUMNS;
     const x = col * CELL_SIZE;
     const y = row * CELL_SIZE;
-    const color = colors.get(nodeId) || "#808080";
+    const color = CELL_COLORS[cellIndex] || "#000000";
 
     lines.push(
       `<rect x=\"${x}\" y=\"${y}\" width=\"${CELL_SIZE}\" height=\"${CELL_SIZE}\" fill=\"${color}\"/>`
@@ -700,7 +1032,12 @@ function clearConnection(ws) {
 app.get("/healthz", async (_req, res) => {
   try {
     await syncRoundState();
-    res.json({ ok: true });
+    res.json({
+      ok: true,
+      app: "p2p-v9",
+      svgRenderer: SVG_RENDERER_ID,
+      patternKey: ACTIVE_PATTERN_CONFIG.key
+    });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message || "health check failed" });
   }
@@ -773,10 +1110,15 @@ app.get("/final-artwork-svg", async (_req, res) => {
     }
 
     const svg = await finalArtworkSvgForCurrentTerminal();
+    const shuffleSeed = await shuffleSeedForRound(terminalSnapshot.roundId);
 
     res.json({
       roundId: terminalSnapshot.roundId,
       seedHash: terminalSnapshot.seedHash,
+      svgRenderer: SVG_RENDERER_ID,
+      patternKey: ACTIVE_PATTERN_CONFIG.key,
+      palette: PALETTE_ID,
+      shuffleSeed,
       svg
     });
   } catch (error) {

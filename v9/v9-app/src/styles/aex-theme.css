@@ -231,11 +231,9 @@ body {
   overflow: hidden;
 }
 
-.cell img,
-.cell-fallback {
+.cell-fill {
   width: 100%;
   height: 100%;
-  object-fit: fill;
   display: block;
   image-rendering: pixelated;
 }
