@@ -1,5 +1,10 @@
 ## Pixel2Pixel
 
+### Status
+- This repository is an exploration and a currently shelved idea, not an actively maintained product.
+- Expect rough edges, abandoned paths, inconsistent documentation between versions, and generally messy implementation details.
+- It is public mainly to invite suggestions, feedback, and outside perspective on the concept and execution.
+
 ### Project Summary
 Pixel2Pixel is a cyclical participation artwork built around 100 ERC721 nodes per round.
 Each node has deterministic on-chain SVG identity, and live seeding determines active participation.
@@ -29,8 +34,8 @@ Each node has deterministic on-chain SVG identity, and live seeding determines a
   - Same contracts/mechanics as v8.
   - Pattern-preview logic modularized under `src/patterns`.
 
-### Active Version
-- Current active workspace: `v9/`
+### Latest Version
+- Latest workspace explored: `v9/`
 - `v7` remains locked.
 - `v8` remains a stable reference/handoff baseline.
 
